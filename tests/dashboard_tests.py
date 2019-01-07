@@ -39,7 +39,7 @@ class SeleniumTests(LiveServerTestCase):
         _add_population(form_elements, form_values)
 
         form_submit.click()
-        sleep(0.3)
+        sleep(1)
 
         _check_if_string_in_html('Population added')
 
@@ -54,7 +54,13 @@ class SeleniumTests(LiveServerTestCase):
         form_submit_after_update.click()
         _check_if_string_in_html('Population name must be unique')
 
-        sleep(0.3)
+        sleep(1)
+
+        self.driver.get(self.get_server_url())
+        amount_of_populations = len(self.driver.find_elements_by_tag_name('h3'))
+        self.assertEqual(amount_of_populations, 1)
+
+        sleep(1)
 
     def tearDown(self):
         self.driver.close()
