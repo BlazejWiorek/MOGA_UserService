@@ -1,10 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %} Add population form {% endblock %}
+
+{% block page_content %}
+<div class="page-header">
+    <h3>Add population</h3>
+</div>
+<div class="col-md-3">
+    {{ wtf.quick_form(form) }}
+</div>
+{% endblock %}
