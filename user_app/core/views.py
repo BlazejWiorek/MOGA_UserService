@@ -27,6 +27,7 @@ def add_population():
 
 @main.route('/', methods=['GET', 'POST'])
 def dashboard():
-    if True:
+    populations = Population.query.all()
+    if len(populations) == 0:
         return redirect(url_for('main.add_population'), code=302)
-    return 'Placeholder'
+    return render_template('main/dashboard.html', populations=populations)
