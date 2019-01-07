@@ -1,0 +1,19 @@
+.column {
+    float: left;
+    padding: 10px;
+}
+
+.row:after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+.button {
+    padding-bottom: 50;
+}
+
+.population_div {
+    padding-top: 15px;
+    padding-bottom: 15px
+}

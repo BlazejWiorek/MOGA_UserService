@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block page_content %}
+
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard_style.css') }}">
+</head>
+
+
+<h2>Populations:</h2>
+{% for population in populations %}
+    <div class="population_div">
+        <h3>Population name: {{ population.name }}</h3>
+        <div></div>
+        {{ population.as_table() }}
+        <div class="row">
+            <div class="column">
+            </div>
+            <div class="column">
+                {% if not population.is_initialized %}
+                    <button id="init_pop_btn_{{ loop.index }}">
+                        Init population
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endfor %}
+{% endblock %}
