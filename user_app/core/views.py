@@ -10,7 +10,12 @@ import os
 
 @main.route('/add_population', methods=['GET', 'POST'])
 def add_population():
+    uploaded_model_files = get_uploaded_model_names(os.path.join(os.getcwd(), 'user_app/static/models'))
+    if not uploaded_model_files:
+        flash('Zanim dodasz populacje musisz dodać model')
+        return redirect(url_for('main.upload_model'), code=302)
     population_form = AddPopulationForm()
+    population_form.model_file.choices = uploaded_model_files
     if population_form.validate_on_submit():
         if Population.query.filter_by(name=population_form.name.data).first() is None:
             population = Population(name=population_form.name.data,
@@ -32,6 +37,7 @@ def add_population():
 def dashboard():
     populations = Population.query.all()
     if len(populations) == 0:
+        flash('Zanim przejdziesz do panelu podglądu populacji musisz dodać populacje')
         return redirect(url_for('main.add_population'), code=302)
     return render_template('main/dashboard.html', populations=populations)
 
@@ -54,5 +60,5 @@ def get_uploaded_model_names(dir: str):
     for model_file in os.listdir(dir):
         model_file_path = os.path.join(dir, model_file)
         if os.path.isfile(model_file_path):
-            res.append(model_file)
+            res.append((model_file_path, model_file))
     return res
