@@ -1,10 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %} Add population form {% endblock %}
+
+{% block page_content %}
+<div class="page-header">
+    <h3>Add model file</h3>
+</div>
+<div class="col-md-3">
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('main.upload_model') }}">
+        {{ upload_form.hidden_tag() }}
+        {{ upload_form.model_file }}
+        {{ upload_form.submit }}
+    </form>
+</div>
+{% endblock %}
