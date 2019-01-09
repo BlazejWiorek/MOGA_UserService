@@ -28,9 +28,10 @@ class Population(db.Model):
     generations = db.Column(db.Integer)
     model_file = db.Column(db.String(150))
 
-    def __init__(self, **kwargs):
+    def __init__(self, model_file=None, **kwargs):
         super(Population, self).__init__(**kwargs)
         self.is_initialized = False
+        self.model_file = model_file
 
     def as_dict(self):
         pop_dict = {'name': self.name,
@@ -38,10 +39,31 @@ class Population(db.Model):
                     'crossover': self.crossover,
                     'mutation': self.mutation,
                     'generations': self.generations,
-                    'model_file': 'model placeholder'}
+                    'model_file': self.model_file}
         return pop_dict
 
     def as_table(self):
         table = PopulationTable([self.as_dict()])
         table.html_attrs = {'style': "width: 100%"}
         return table
+
+
+class PopulationMetricsChoices:
+    MAX_LENGTH = 'Max length'
+    AVG_LENGTH = 'Average length'
+    MIN_LENGTH = 'Min length'
+    MAX_PROFIT = 'Max length'
+    AVG_PROFIT = 'Average length'
+    MIN_PROFIT = 'Mix length'
+    MIN_MAX_AVG = 'Min - Max - Avg'
+    STD_PROFIT = 'Standard deviation of profit'
+    STD_LENGTH = 'Standard deviation of length'
+    VARIETY = 'Variety per generation'
+
+    @staticmethod
+    def to_list():
+        return [PopulationMetricsChoices.MAX_LENGTH, PopulationMetricsChoices.AVG_LENGTH,
+                PopulationMetricsChoices.MIN_LENGTH, PopulationMetricsChoices.MAX_PROFIT,
+                PopulationMetricsChoices.AVG_PROFIT, PopulationMetricsChoices.MIN_PROFIT,
+                PopulationMetricsChoices.MIN_MAX_AVG, PopulationMetricsChoices.STD_PROFIT,
+                PopulationMetricsChoices.STD_LENGTH, PopulationMetricsChoices.VARIETY]
