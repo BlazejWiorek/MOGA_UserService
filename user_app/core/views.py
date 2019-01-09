@@ -1,13 +1,15 @@
 from .. import db
+from ..models import Population, PopulationMetrics
 from . import main, models_files
 from .forms import AddPopulationForm, UploadForm
 from bokeh.plotting import figure
 from bokeh.embed import components
 from bokeh.models.sources import AjaxDataSource
 from flask import redirect, url_for, flash, render_template, request, jsonify
+from sqlalchemy import select, join, and_, desc
 from user_app.models import Population, PopulationMetricsChoices
 
-
+import numpy as np
 import os
 
 
@@ -58,9 +60,10 @@ def upload_model():
     return render_template('main/add_model.html', upload_form=upload_form)
 
 
-@main.route('/status/<population_name>', methods=['GET', 'POST'])
-def generation_status(population_name):
-    return jsonify(x=[1, 2, 3], y=[1, 2, 3])
+@main.route('/population_metrics/<population_name>/<plotting_variant>', methods=['GET', 'POST'])
+def population_metrics(population_name, plotting_variant):
+    population_metrics = get_population_metrics(population_name, PopulationMetricsChoices.to_column(plotting_variant))
+    return jsonify(x=population_metrics[:, 1].tolist(), y=population_metrics[:, 0].tolist())
 
 
 @main.route('/dashboard/<population_name>/<plotting_variant>', methods=['GET', 'POST'])
@@ -72,7 +75,7 @@ def population_details(population_name, plotting_variant):
                                 plotting_variant=plotting_variant,
                                 population_name=population_name))
     plots = []
-    plots.append(make_plot(population_name, plotting_variant))
+    plots.append(population_metrics_plot(population_name, plotting_variant))
     return render_template('main/population_details.html',
                            feature_names=PopulationMetricsChoices.to_list(),
                            plotting_variant='default',
@@ -80,10 +83,21 @@ def population_details(population_name, plotting_variant):
                            plots=plots)
 
 
-def make_plot(population_name, plotting_variant):
-    source = AjaxDataSource(data_url=request.url_root + 'status/' + population_name,
-                            polling_interval=2100)
-    print(request.url_root + 'status/' + population_name)
+def get_population_metrics(pop_name, selected_feature):
+    query = select([Population.name, PopulationMetrics]). \
+                    select_from(join(Population, PopulationMetrics)). \
+                    where(and_(Population.name == pop_name))
+    query_res = db.engine.execute(query).fetchall()
+    metric_values = np.zeros((len(query_res), 2))
+    for i, res in enumerate(query_res):
+        metric_values[i, 0] = res[selected_feature]
+        metric_values[i, 1] = res['generation']
+    return metric_values
+
+
+def population_metrics_plot(population_name, plotting_variant):
+    source = AjaxDataSource(data_url=request.url_root + 'population_metrics/' + population_name + '/' + plotting_variant,
+                            polling_interval=10100)
     source.data = dict(x=[], y=[])
     plot = figure(plot_height=300, sizing_mode='scale_width')
     plot.line('x', 'y', source=source, line_width=4)
