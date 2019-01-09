@@ -1,8 +1,11 @@
 from .. import db
 from . import main, models_files
 from .forms import AddPopulationForm, UploadForm
-from flask import redirect, url_for, flash, render_template, request
-from user_app.models import Population
+from bokeh.plotting import figure
+from bokeh.embed import components
+from bokeh.models.sources import AjaxDataSource
+from flask import redirect, url_for, flash, render_template, request, jsonify
+from user_app.models import Population, PopulationMetricsChoices
 
 
 import os
@@ -23,7 +26,7 @@ def add_population():
                                     crossover=population_form.cross_coef.data,
                                     mutation=population_form.mut_coef.data,
                                     generations=population_form.max_generations.data,
-                                    model_file='')
+                                    model_file=population_form.model_file)
             db.session.add(population)
             db.session.commit()
             flash('Population added')
@@ -53,6 +56,39 @@ def upload_model():
             flash('wrong file extension')
         return redirect(url_for('main.upload_model'))
     return render_template('main/add_model.html', upload_form=upload_form)
+
+
+@main.route('/status/<population_name>', methods=['GET', 'POST'])
+def generation_status(population_name):
+    return jsonify(x=[1, 2, 3], y=[1, 2, 3])
+
+
+@main.route('/dashboard/<population_name>/<plotting_variant>', methods=['GET', 'POST'])
+def population_details(population_name, plotting_variant):
+    if request.method == 'POST':
+        req_form = request.form
+        plotting_variant = req_form['plotting_variant']
+        return redirect(url_for('main.population_details',
+                                plotting_variant=plotting_variant,
+                                population_name=population_name))
+    plots = []
+    plots.append(make_plot(population_name, plotting_variant))
+    return render_template('main/population_details.html',
+                           feature_names=PopulationMetricsChoices.to_list(),
+                           plotting_variant='default',
+                           population_name=population_name,
+                           plots=plots)
+
+
+def make_plot(population_name, plotting_variant):
+    source = AjaxDataSource(data_url=request.url_root + 'status/' + population_name,
+                            polling_interval=2100)
+    print(request.url_root + 'status/' + population_name)
+    source.data = dict(x=[], y=[])
+    plot = figure(plot_height=300, sizing_mode='scale_width')
+    plot.line('x', 'y', source=source, line_width=4)
+    script, div = components(plot)
+    return script, div
 
 
 def get_uploaded_model_names(dir: str):

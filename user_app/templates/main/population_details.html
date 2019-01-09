@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block styles %}
+    {{ super() }}
+    <!-- Bokeh includes-->
+    <link rel="stylesheet" href="http://cdn.pydata.org/bokeh/release/bokeh-1.0.0.min.css" type="text/css" />
+    <script type="text/javascript" src="http://cdn.pydata.org/bokeh/release/bokeh-1.0.0.min.js"></script>
+{% endblock %}
+
+{% block page_content %}
+<body>
+    <div>
+        <h3>Population Dashboard</h3>
+            <div class="col-sm-4">
+                <form action="{{ url_for('main.population_details',
+                                 population_name=population_name,
+                                 plotting_variant='default') }}" method="post">
+                    <select name="plotting_variant">
+                        {% for feature in feature_names %}
+                            <option name="plotting_variant" value="{{ feature }}">{{ feature }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="submit">
+                </form>
+                {% for plot in plots %}
+                    {% for part in plot %}
+                        {{part | safe}}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            <div class="col-sm-4">
+
+            </div>
+    </div>
+</body>
+{% endblock %}

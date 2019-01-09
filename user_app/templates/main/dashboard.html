@@ -14,6 +14,15 @@
         {{ population.as_table() }}
         <div class="row">
             <div class="column">
+                <form id="pop_form_{{ loop.index }}"
+                      action="{{ url_for('main.population_details',
+                                          population_name=population.name,
+                                          plotting_variant='default') }}"
+                      method="get">
+                    <input type="submit" value="View population dashboard"/>
+                </form>
+            </div>
+            <div class="column">
             </div>
             <div class="column">
                 {% if not population.is_initialized %}
