@@ -28,6 +28,10 @@ class Population(db.Model):
     generations = db.Column(db.Integer)
     model_file = db.Column(db.String(150))
 
+    pop_metrics = db.relationship("PopulationMetrics", back_populates="population")
+    fronts = db.relationship("Front", back_populates="population")
+
+
     def __init__(self, model_file=None, **kwargs):
         super(Population, self).__init__(**kwargs)
         self.is_initialized = False
@@ -48,6 +52,70 @@ class Population(db.Model):
         return table
 
 
+class PopulationMetrics(db.Model):
+    __tablename__ = 'PopulationMetrics'
+
+    pop_matric_id = db.Column(db.Integer, primary_key=True)
+    generation = db.Column(db.Integer)
+
+    routes_variety = db.Column(db.Float)
+    plans_variety = db.Column(db.Float)
+
+    min_length = db.Column(db.Float)
+    avg_length = db.Column(db.Float)
+    max_length = db.Column(db.Float)
+    std_length = db.Column(db.Float)
+
+    min_profit = db.Column(db.Float)
+    avg_profit = db.Column(db.Float)
+    max_profit = db.Column(db.Float)
+    std_profit = db.Column(db.Float)
+
+    avg_exec_time = db.Column(db.Integer)
+
+    population_id = db.Column(db.Integer, db.ForeignKey('Population.population_id'))
+    population = db.relationship("Population", back_populates="pop_metrics")
+
+
+class Front(db.Model):
+    __tablename__ = 'Front'
+    front_id = db.Column(db.Integer, primary_key=True)
+    generation = db.Column(db.Integer)
+
+    population_id = db.Column(db.Integer, db.ForeignKey('Population.population_id'))
+    population = db.relationship("Population", back_populates="fronts")
+
+    exemplars = db.relationship("Exemplar", back_populates="front")
+    metrics = db.relationship("FrontMetrics", back_populates="front")
+
+
+class Exemplar(db.Model):
+    __tablename__ = 'Exemplar'
+    exemplar_id = db.Column(db.Integer, primary_key=True)
+    profit = db.Column(db.Float)
+    length = db.Column(db.Float)
+    repr = db.Column(db.Text)
+
+    front_id = db.Column(db.Integer, db.ForeignKey('Front.front_id'))
+    front = db.relationship("Front", back_populates="exemplars")
+
+
+class FrontMetrics(db.Model):
+    __tablename__ = 'FrontMetrics'
+    front_metrics_id = db.Column(db.Integer, primary_key=True)
+    cardinality = db.Column(db.Integer)
+    os = db.Column(db.Float)
+    sp = db.Column(db.Float)
+    sp_field = db.Column(db.Float)
+    hypervolume = db.Column(db.Float)
+    angle = db.Column(db.Float)
+    sp_angle = db.Column(db.Float)
+    euclidean = db.Column(db.Float)
+
+    front_id = db.Column(db.Integer, db.ForeignKey('Front.front_id'))
+    front = db.relationship("Front", back_populates="metrics")
+
+
 class PopulationMetricsChoices:
     MAX_LENGTH = 'Max length'
     AVG_LENGTH = 'Average length'
@@ -60,6 +128,17 @@ class PopulationMetricsChoices:
     STD_LENGTH = 'Standard deviation of length'
     VARIETY = 'Variety per generation'
 
+    MAPPER = {MAX_LENGTH: 'max_length',
+              AVG_LENGTH: 'avg_length',
+              MIN_LENGTH: 'min_length',
+              MAX_PROFIT: 'max_profit',
+              AVG_PROFIT: 'avg_profit',
+              MIN_PROFIT: 'min_profit',
+              MIN_MAX_AVG: '',
+              STD_PROFIT: 'std_profit',
+              STD_LENGTH: 'std_length',
+              VARIETY: 'routes_variety'}
+
     @staticmethod
     def to_list():
         return [PopulationMetricsChoices.MAX_LENGTH, PopulationMetricsChoices.AVG_LENGTH,
@@ -67,3 +146,7 @@ class PopulationMetricsChoices:
                 PopulationMetricsChoices.AVG_PROFIT, PopulationMetricsChoices.MIN_PROFIT,
                 PopulationMetricsChoices.MIN_MAX_AVG, PopulationMetricsChoices.STD_PROFIT,
                 PopulationMetricsChoices.STD_LENGTH, PopulationMetricsChoices.VARIETY]
+
+    @staticmethod
+    def to_column(selection):
+        return PopulationMetricsChoices.MAPPER.get(selection, 'avg_profit')
