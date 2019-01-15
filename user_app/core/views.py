@@ -1,5 +1,5 @@
 from .. import db
-from ..models import Population, PopulationMetrics
+from ..models import Population, PopulationMetrics, Front, Exemplar
 from . import main, models_files
 from .forms import AddPopulationForm, UploadForm
 from bokeh.plotting import figure
@@ -7,7 +7,7 @@ from bokeh.embed import components
 from bokeh.models.sources import AjaxDataSource
 from flask import redirect, url_for, flash, render_template, request, jsonify
 from sqlalchemy import select, join, and_, desc
-from user_app.models import Population, PopulationMetricsChoices
+from user_app.models import Population, PopulationMetricsChoices, FrontMetrics
 
 import numpy as np
 import os
@@ -66,6 +66,20 @@ def population_metrics(population_name, plotting_variant):
     return jsonify(x=population_metrics[:, 1].tolist(), y=population_metrics[:, 0].tolist())
 
 
+@main.route('/front_data/<population_name>', methods=['GET', 'POST'])
+def front_data(population_name):
+    front_data = get_front_data(population_name)
+    return jsonify(x=front_data[:, 1].tolist(), y=front_data[:, 0].tolist())
+
+
+@main.route('/front_metrics/<population_name>', methods=['GET', 'POST'])
+def front_metrics_data(population_name):
+    if request.method == 'POST':
+        return jsonify({})
+    metrics = get_metrics(population_name)
+    return jsonify(metrics)
+
+
 @main.route('/dashboard/<population_name>/<plotting_variant>', methods=['GET', 'POST'])
 def population_details(population_name, plotting_variant):
     if request.method == 'POST':
@@ -74,8 +88,13 @@ def population_details(population_name, plotting_variant):
         return redirect(url_for('main.population_details',
                                 plotting_variant=plotting_variant,
                                 population_name=population_name))
+
     plots = []
-    plots.append(population_metrics_plot(population_name, plotting_variant))
+    plots.append(create_population_metrics_plot(
+        request.url_root + 'population_metrics/' + population_name + '/' + plotting_variant))
+
+    plots.append(create_front_plot(request.url_root + 'front_data/' + population_name))
+
     return render_template('main/population_details.html',
                            feature_names=PopulationMetricsChoices.to_list(),
                            plotting_variant='default',
@@ -95,12 +114,51 @@ def get_population_metrics(pop_name, selected_feature):
     return metric_values
 
 
-def population_metrics_plot(population_name, plotting_variant):
-    source = AjaxDataSource(data_url=request.url_root + 'population_metrics/' + population_name + '/' + plotting_variant,
-                            polling_interval=10100)
+def get_front_data(pop_name):
+    query = select([Population.name, Front.generation, Front.front_id]). \
+                    select_from(join(Population, Front)). \
+                    where(and_(Population.name == pop_name)).\
+                    order_by(desc(Front.generation))
+    front = db.engine.execute(query).first()
+
+    front_exemplars_query = select([Exemplar.length, Exemplar.profit]).\
+        select_from(join(Front, Exemplar)).\
+        where(Exemplar.front_id == front['front_id'])
+    exemplars = db.engine.execute(front_exemplars_query).fetchall()
+
+    exemplars_fitness = np.zeros((len(exemplars), 2))
+    for i, exemplar in enumerate(exemplars):
+        exemplars_fitness[i] = exemplar['length'], exemplar['profit']
+    return exemplars_fitness
+
+
+def get_metrics(pop_name):
+    front_query = select([Front.front_id]).select_from(join(Population, Front)).\
+        where(Population.name == pop_name).order_by(desc(Front.generation))
+    front_id = db.engine.execute(front_query).first()['front_id']
+
+    front_metrics_query = select([FrontMetrics]).where(FrontMetrics.front_id == front_id)
+    front_metrics = db.engine.execute(front_metrics_query).first()
+    front_m = dict(front_metrics)
+    return front_m
+
+
+def create_population_metrics_plot(url):
+    source = AjaxDataSource(data_url=url,
+                            polling_interval=10000)
     source.data = dict(x=[], y=[])
-    plot = figure(plot_height=300, sizing_mode='scale_width')
+    plot = figure(plot_width=700, plot_height=350)
     plot.line('x', 'y', source=source, line_width=4)
+    script, div = components(plot)
+    return script, div
+
+
+def create_front_plot(url):
+    source = AjaxDataSource(data_url=url,
+                            polling_interval=10000)
+    source.data = dict(x=[], y=[])
+    plot = figure(plot_width=700, plot_height=350)
+    plot.circle('x', 'y', source=source, line_width=4)
     script, div = components(plot)
     return script, div
 
