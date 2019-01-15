@@ -5,32 +5,97 @@
     <!-- Bokeh includes-->
     <link rel="stylesheet" href="http://cdn.pydata.org/bokeh/release/bokeh-1.0.0.min.css" type="text/css" />
     <script type="text/javascript" src="http://cdn.pydata.org/bokeh/release/bokeh-1.0.0.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 {% endblock %}
 
 {% block page_content %}
+
+<script>
+
+    function init_fetch_metrics(pop_name) {
+        console.log(pop_name);
+        $.ajax({
+            type: 'POST',
+            url: '/front_metrics/' + pop_name,
+            success: function(data) {
+                get_metrics(pop_name);
+            }});
+    }
+
+    function get_metrics(pop_name) {
+        console.log(pop_name);
+        $.getJSON('/front_metrics/' + pop_name, function(data) {
+            metrics_list = document.getElementById("metrics");
+
+            elem = document.getElementById("angle")
+            elem.innerHTML = "Angle: " + data["angle"]
+
+            elem = document.getElementById("cardinality")
+            elem.innerHTML = "Cardinality: " + data["cardinality"]
+
+            elem = document.getElementById("euclidean")
+            elem.innerHTML = "Euclidean: " + data["euclidean"]
+
+            elem = document.getElementById("hypervolume")
+            elem.innerHTML = "Hypervolume: " + data["hypervolume"]
+
+            elem = document.getElementById("os")
+            elem.innerHTML = "Overall spread: " + data["os"]
+
+            elem = document.getElementById("sp")
+            elem.innerHTML = "Spacing: " + data["sp"]
+
+            elem = document.getElementById("sp_angle")
+            elem.innerHTML = "Spacing angle: " + data["sp_angle"]
+
+            elem = document.getElementById("sp_field")
+            elem.innerHTML = "Spacing field: " + data["sp_field"]
+
+            setTimeout(function() {
+                get_metrics(pop_name);
+                }, 8000);
+        });
+    }
+
+</script>
+
 <body>
-    <div>
+    <script>init_fetch_metrics('{{ population_name }}');</script>
+    <div style="padding: 10px">
         <h3>Population Dashboard</h3>
-            <div class="col-sm-4">
-                <form action="{{ url_for('main.population_details',
+        <div>
+            <form action="{{ url_for('main.population_details',
                                  population_name=population_name,
                                  plotting_variant='default') }}" method="post">
-                    <select name="plotting_variant">
-                        {% for feature in feature_names %}
-                            <option name="plotting_variant" value="{{ feature }}">{{ feature }}</option>
-                        {% endfor %}
-                    </select>
-                    <input type="submit">
-                </form>
-                {% for plot in plots %}
-                    {% for part in plot %}
-                        {{part | safe}}
+                <select name="plotting_variant">
+                    {% for feature in feature_names %}
+                    <option name="plotting_variant" value="{{ feature }}">{{ feature }}</option>
                     {% endfor %}
-                {% endfor %}
-            </div>
-            <div class="col-sm-4">
-
-            </div>
+                </select>
+                <input type="submit">
+            </form>
+        </div>
     </div>
+        <div class="row">
+            <div class="col-sm-8">
+                {% for plot in plots %}
+                {% for part in plot %}
+                    {{part | safe}}
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            <div class="col-sm-2" style=" width: 30%">
+                <ul id="metrics" class="list-group">
+                  <li id="angle" class="list-group-item">Angle: 0</li>
+                  <li id="cardinality" class="list-group-item">Cardinalty: 0</li>
+                  <li id="euclidean" class="list-group-item">Euclidean: 0</li>
+                  <li id="hypervolume" class="list-group-item">Hypervolume: 0</li>
+                  <li id="os" class="list-group-item">Overall spread: 0</li>
+                  <li id="sp" class="list-group-item">Spacing: 0</li>
+                  <li id="sp_angle" class="list-group-item">Spacing angle: 0</li>
+                  <li id="sp_field" class="list-group-item">Spacing field: 0</li>
+                </ul>
+            </div>
+        </div>
 </body>
 {% endblock %}
