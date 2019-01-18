@@ -5,7 +5,7 @@ from .forms import AddPopulationForm, UploadForm
 from bokeh.plotting import figure
 from bokeh.embed import components
 from bokeh.models.sources import AjaxDataSource
-from flask import redirect, url_for, flash, render_template, request, jsonify
+from flask import redirect, url_for, flash, render_template, request, jsonify, session
 from sqlalchemy import select, join, and_, desc
 from user_app.models import Population, PopulationMetricsChoices, FrontMetrics
 
@@ -100,6 +100,14 @@ def population_details(population_name, plotting_variant):
                            plotting_variant='default',
                            population_name=population_name,
                            plots=plots)
+
+
+@main.route('/worker_ready/<worker_id>', methods=['POST'])
+def register_worker(worker_id):
+    active_workers = session.get('active_workers', [])
+    active_workers.append(worker_id)
+    session['active_workers'] = active_workers
+    return jsonify({})
 
 
 def get_population_metrics(pop_name, selected_feature):
