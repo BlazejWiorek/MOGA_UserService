@@ -5,7 +5,7 @@ from .forms import AddPopulationForm, UploadForm
 from bokeh.plotting import figure
 from bokeh.embed import components
 from bokeh.models.sources import AjaxDataSource
-from flask import redirect, url_for, flash, render_template, request, jsonify, session
+from flask import redirect, url_for, flash, render_template, request, jsonify, session, current_app, send_from_directory
 from sqlalchemy import select, join, and_, desc
 from user_app.models import Population, PopulationMetricsChoices, FrontMetrics
 
@@ -110,6 +110,15 @@ def register_worker(worker_id):
     return jsonify({})
 
 
+@main.route('/model/<path:model_file>')
+def get_model(model_file):
+    models_dir = current_app.config['UPLOADED_TEXT_DEST']
+    models = get_uploaded_model_names(models_dir)
+    if model_file in models:
+        return send_from_directory(directory=models_dir, filename=model_file, as_attachment=True)
+    return jsonify({})
+
+
 def get_population_metrics(pop_name, selected_feature):
     query = select([Population.name, PopulationMetrics]). \
                     select_from(join(Population, PopulationMetrics)). \
@@ -176,5 +185,5 @@ def get_uploaded_model_names(dir: str):
     for model_file in os.listdir(dir):
         model_file_path = os.path.join(dir, model_file)
         if os.path.isfile(model_file_path):
-            res.append((model_file_path, model_file))
+            res.append(model_file)
     return res
