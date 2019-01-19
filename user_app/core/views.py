@@ -11,6 +11,16 @@ from user_app.models import Population, PopulationMetricsChoices, FrontMetrics
 
 import numpy as np
 import os
+import pickle
+
+WORKERS_FILE_PATH = os.path.join(os.getcwd(), 'user_app/static/workers.pickle')
+
+
+@main.before_app_first_request
+def remove_workers():
+    workers_dict = dict()
+    with open(WORKERS_FILE_PATH, 'wb') as workers_file:
+        pickle.dump(workers_dict, workers_file)
 
 
 @main.route('/add_population', methods=['GET', 'POST'])
@@ -40,6 +50,12 @@ def add_population():
 
 @main.route('/', methods=['GET', 'POST'])
 def dashboard():
+
+    messages = session.get('dashboard_message', [])
+    print(session)
+    for msg in messages:
+        flash(msg)
+
     populations = Population.query.all()
     if len(populations) == 0:
         flash('Zanim przejdziesz do panelu podglądu populacji musisz dodać populacje')
@@ -102,11 +118,10 @@ def population_details(population_name, plotting_variant):
                            plots=plots)
 
 
-@main.route('/worker_ready/<worker_id>', methods=['POST'])
-def register_worker(worker_id):
-    active_workers = session.get('active_workers', [])
-    active_workers.append(worker_id)
-    session['active_workers'] = active_workers
+@main.route('/worker_ready/<worker_id>/<worker_url>', methods=['POST'])
+def register_worker(worker_id, worker_url):
+    worker_url = 'http://' + worker_url
+    add_worker(worker_id, worker_url)
     return jsonify({})
 
 
@@ -117,6 +132,19 @@ def get_model(model_file):
     if model_file in models:
         return send_from_directory(directory=models_dir, filename=model_file, as_attachment=True)
     return jsonify({})
+
+
+def add_worker(worker_id, worker_url):
+    workers_dict = dict()
+
+    if os.path.getsize(WORKERS_FILE_PATH) > 0:
+        with open(WORKERS_FILE_PATH, 'rb') as workers_file:
+            workers_dict = pickle.load(workers_file)
+
+    workers_dict[worker_id] = {'url': worker_url, 'status': 'waiting', 'errors': None}
+
+    with open(WORKERS_FILE_PATH, 'wb') as workers_file:
+        pickle.dump(workers_dict, workers_file)
 
 
 def get_population_metrics(pop_name, selected_feature):
