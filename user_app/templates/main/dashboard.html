@@ -5,10 +5,28 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='dashboard_style.css') }}">
 </head>
 
+<script>
+
+    function init_task(pop_id, init_button) {
+
+        $.ajax({
+            type: 'POST',
+            url: '/init_evolution_task/' + pop_id,
+            success: function(results) {
+                if (results.no_workers) {
+                    window.alert("There are no active workers");
+                }
+            },
+            error: function() {
+            }
+        });
+    }
+
+</script>
 
 <h2>Populations:</h2>
 {% for population in populations %}
-    <div class="population_div">
+    <div id="pop_div" class="population_div">
         <h3>Population name: {{ population.name }}</h3>
         <div></div>
         {{ population.as_table() }}
@@ -26,7 +44,9 @@
             </div>
             <div class="column">
                 {% if not population.is_initialized %}
-                    <button id="init_pop_btn_{{ loop.index }}">
+                    <button id="init_pop_btn_{{ loop.index }}"
+                            onclick="init_task({{ population['population_id'] }},
+                                               init_pop_btn_{{ loop.index }})">
                         Init population
                     </button>
                 {% endif %}

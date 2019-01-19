@@ -12,6 +12,8 @@ from user_app.models import Population, PopulationMetricsChoices, FrontMetrics
 import numpy as np
 import os
 import pickle
+import requests
+
 
 WORKERS_FILE_PATH = os.path.join(os.getcwd(), 'user_app/static/workers.pickle')
 
@@ -50,9 +52,7 @@ def add_population():
 
 @main.route('/', methods=['GET', 'POST'])
 def dashboard():
-
     messages = session.get('dashboard_message', [])
-    print(session)
     for msg in messages:
         flash(msg)
 
@@ -125,6 +125,16 @@ def register_worker(worker_id, worker_url):
     return jsonify({})
 
 
+@main.route('/init_evolution_task/<pop_id>', methods=['POST'])
+def init_evolution(pop_id):
+    available_worker_url = get_available_worker()
+    if not available_worker_url:
+        return jsonify(no_workers=1)
+    evolution_request_data = create_evolution_request_data(pop_id)
+    requests.post(available_worker_url, data=evolution_request_data)
+    return jsonify(no_workers=0)
+
+
 @main.route('/model/<path:model_file>')
 def get_model(model_file):
     models_dir = current_app.config['UPLOADED_TEXT_DEST']
@@ -142,15 +152,47 @@ def add_worker(worker_id, worker_url):
             workers_dict = pickle.load(workers_file)
 
     workers_dict[worker_id] = {'url': worker_url, 'status': 'waiting', 'errors': None}
+    override_workers_file(workers_dict)
 
+
+def create_evolution_request_data(pop_id):
+    query = select([Population.name, Population.model_file,
+                    Population.generations, Population.size,
+                    Population.mutation, Population.crossover]).\
+        where(Population.population_id == pop_id)
+    population = db.engine.execute(query).first()
+    return pickle.dumps(dict(population))
+
+
+def get_available_worker():
+    if os.path.getsize(WORKERS_FILE_PATH) == 0:
+        return None
+
+    with open(WORKERS_FILE_PATH, 'rb') as workers_file:
+        workers_dict = pickle.load(workers_file)
+
+    avail_workers = [(worker_id, workers_dict[worker_id]['url'])
+                     for worker_id, worker_dict in workers_dict.items()
+                     if worker_dict['status'] == 'waiting']
+
+    if not avail_workers:
+        return None
+
+    avail_worker_id, avail_worker_url = avail_workers[0]
+    workers_dict[avail_worker_id]['status'] = 'busy'
+    override_workers_file(workers_dict)
+    return avail_worker_url
+
+
+def override_workers_file(new_workers_dict):
     with open(WORKERS_FILE_PATH, 'wb') as workers_file:
-        pickle.dump(workers_dict, workers_file)
+        pickle.dump(new_workers_dict, workers_file)
 
 
 def get_population_metrics(pop_name, selected_feature):
     query = select([Population.name, PopulationMetrics]). \
-                    select_from(join(Population, PopulationMetrics)). \
-                    where(and_(Population.name == pop_name))
+        select_from(join(Population, PopulationMetrics)). \
+        where(and_(Population.name == pop_name))
     query_res = db.engine.execute(query).fetchall()
     metric_values = np.zeros((len(query_res), 2))
     for i, res in enumerate(query_res):
@@ -161,13 +203,13 @@ def get_population_metrics(pop_name, selected_feature):
 
 def get_front_data(pop_name):
     query = select([Population.name, Front.generation, Front.front_id]). \
-                    select_from(join(Population, Front)). \
-                    where(and_(Population.name == pop_name)).\
-                    order_by(desc(Front.generation))
+        select_from(join(Population, Front)). \
+        where(and_(Population.name == pop_name)). \
+        order_by(desc(Front.generation))
     front = db.engine.execute(query).first()
 
-    front_exemplars_query = select([Exemplar.length, Exemplar.profit]).\
-        select_from(join(Front, Exemplar)).\
+    front_exemplars_query = select([Exemplar.length, Exemplar.profit]). \
+        select_from(join(Front, Exemplar)). \
         where(Exemplar.front_id == front['front_id'])
     exemplars = db.engine.execute(front_exemplars_query).fetchall()
 
@@ -178,7 +220,7 @@ def get_front_data(pop_name):
 
 
 def get_metrics(pop_name):
-    front_query = select([Front.front_id]).select_from(join(Population, Front)).\
+    front_query = select([Front.front_id]).select_from(join(Population, Front)). \
         where(Population.name == pop_name).order_by(desc(Front.generation))
     front_id = db.engine.execute(front_query).first()['front_id']
 
