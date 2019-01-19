@@ -127,20 +127,25 @@ def register_worker(worker_id, worker_url):
 
 @main.route('/init_evolution_task/<pop_id>', methods=['POST'])
 def init_evolution(pop_id):
-    available_worker_url = get_available_worker()
-    if not available_worker_url:
+    available_worker_data = get_available_worker()
+    if not available_worker_data:
         return jsonify(no_workers=1)
-    evolution_request_data = create_evolution_request_data(pop_id)
+    available_worker_url, available_worker_id = available_worker_data
+    evolution_request_data = create_evolution_request_data(available_worker_id, pop_id)
     requests.post(available_worker_url, data=evolution_request_data)
     return jsonify(no_workers=0)
 
 
-@main.route('/model/<path:model_file>')
+@main.route('/model/<path:model_file>', methods=['GET', 'POST'])
 def get_model(model_file):
-    models_dir = current_app.config['UPLOADED_TEXT_DEST']
-    models = get_uploaded_model_names(models_dir)
-    if model_file in models:
-        return send_from_directory(directory=models_dir, filename=model_file, as_attachment=True)
+    if request.method == 'GET':
+        models_dir = current_app.config['UPLOADED_TEXT_DEST']
+        models = get_uploaded_model_names(models_dir)
+        if model_file in models:
+            return send_from_directory(directory=models_dir, filename=model_file, as_attachment=True)
+    else:
+        worker_id, model_file = pickle.loads(request.data)
+        invalid_model(worker_id, model_file)
     return jsonify({})
 
 
@@ -155,13 +160,14 @@ def add_worker(worker_id, worker_url):
     override_workers_file(workers_dict)
 
 
-def create_evolution_request_data(pop_id):
+def create_evolution_request_data(worker_id, pop_id):
     query = select([Population.name, Population.model_file,
                     Population.generations, Population.size,
                     Population.mutation, Population.crossover]).\
         where(Population.population_id == pop_id)
     population = db.engine.execute(query).first()
-    return pickle.dumps(dict(population))
+    request_dict = {'worker_id': worker_id, **dict(population)}
+    return pickle.dumps(request_dict)
 
 
 def get_available_worker():
@@ -181,12 +187,22 @@ def get_available_worker():
     avail_worker_id, avail_worker_url = avail_workers[0]
     workers_dict[avail_worker_id]['status'] = 'busy'
     override_workers_file(workers_dict)
-    return avail_worker_url
+    return avail_worker_url, avail_worker_id
 
 
 def override_workers_file(new_workers_dict):
     with open(WORKERS_FILE_PATH, 'wb') as workers_file:
         pickle.dump(new_workers_dict, workers_file)
+
+
+def invalid_model(worker_id, model_file):
+    with open(WORKERS_FILE_PATH, 'rb') as workers_file:
+        workers_dict = pickle.load(workers_file)
+
+    worker = workers_dict[worker_id]
+    new_worker_dict = {'url': worker['url'], 'status': 'waiting', 'errors': model_file}
+    del workers_dict[worker_id]
+    override_workers_file({worker_id: new_worker_dict, **workers_dict})
 
 
 def get_population_metrics(pop_name, selected_feature):
