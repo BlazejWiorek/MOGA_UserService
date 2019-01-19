@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block styles %}
+    {{ super() }}
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+{% endblock %}
+
+{% block page_content %}
+
+<script>
+
+    function init_fetch_metrics() {
+        $.ajax({
+            type: 'POST',
+            url: '/workers_update',
+            success: function(data) {
+                get_metrics();
+            }});
+    }
+
+    function get_metrics() {
+        $.getJSON('/workers_update', function(data) {
+
+            $("table.order-list").children('tbody').remove();
+
+            var counter = 0;
+
+            jQuery.each(data, function(i, val) {
+                var newRow = $("<tr>");
+                var cols = "";
+                cols += '<td>' + i + '</td>';
+                cols += '<td>' + val.status + '</td>'
+                cols += '<td>' + val.url + '</td>'
+                cols += '<td>' + val.errors + '</td>'
+                newRow.append(cols)
+                $("table.order-list").append(newRow);
+            });
+
+
+            setTimeout(function() {
+                get_metrics();
+                }, 5000);
+        });
+    }
+
+</script>
+
+<body>
+    <script>init_fetch_metrics();</script>
+    <table id="myTable" class="table order-list">
+        <thead>
+            <tr>
+                <td>Worker ID</td>
+                <td>Status</td>
+                <td>URL</td>
+                <td>Errors</td>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+            </tr>
+        </tbody>
+    </table>
+</body>
+
+{% endblock %}

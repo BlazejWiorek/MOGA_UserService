@@ -149,12 +149,27 @@ def get_model(model_file):
     return jsonify({})
 
 
+@main.route('/workers')
+def workers():
+    return render_template('main/workers.html')
+
+
+@main.route('/workers_update', methods=['GET', 'POST'])
+def workers_update():
+    return jsonify(get_workers())
+
+
+def get_workers():
+    with open(WORKERS_FILE_PATH, 'rb') as workers_file:
+        workers_dict = pickle.load(workers_file)
+    return workers_dict
+
+
 def add_worker(worker_id, worker_url):
     workers_dict = dict()
 
     if os.path.getsize(WORKERS_FILE_PATH) > 0:
-        with open(WORKERS_FILE_PATH, 'rb') as workers_file:
-            workers_dict = pickle.load(workers_file)
+        workers_dict = get_workers()
 
     workers_dict[worker_id] = {'url': worker_url, 'status': 'waiting', 'errors': None}
     override_workers_file(workers_dict)
@@ -174,8 +189,7 @@ def get_available_worker():
     if os.path.getsize(WORKERS_FILE_PATH) == 0:
         return None
 
-    with open(WORKERS_FILE_PATH, 'rb') as workers_file:
-        workers_dict = pickle.load(workers_file)
+    workers_dict = get_workers()
 
     avail_workers = [(worker_id, workers_dict[worker_id]['url'])
                      for worker_id, worker_dict in workers_dict.items()
@@ -196,8 +210,7 @@ def override_workers_file(new_workers_dict):
 
 
 def invalid_model(worker_id, model_file):
-    with open(WORKERS_FILE_PATH, 'rb') as workers_file:
-        workers_dict = pickle.load(workers_file)
+    workers_dict = get_workers()
 
     worker = workers_dict[worker_id]
     new_worker_dict = {'url': worker['url'], 'status': 'waiting', 'errors': model_file}
