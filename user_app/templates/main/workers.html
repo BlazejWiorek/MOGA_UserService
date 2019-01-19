@@ -31,7 +31,7 @@
                 cols += '<td>' + i + '</td>';
                 cols += '<td>' + val.status + '</td>'
                 cols += '<td>' + val.url + '</td>'
-                cols += '<td>' + val.errors + '</td>'
+                cols += '<td>' + val.notifications + '</td>'
                 newRow.append(cols)
                 $("table.order-list").append(newRow);
             });
@@ -53,7 +53,7 @@
                 <td>Worker ID</td>
                 <td>Status</td>
                 <td>URL</td>
-                <td>Errors</td>
+                <td>Notifications</td>
             </tr>
         </thead>
         <tbody>

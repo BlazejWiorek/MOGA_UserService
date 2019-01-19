@@ -23,6 +23,8 @@ def remove_workers():
     workers_dict = dict()
     with open(WORKERS_FILE_PATH, 'wb') as workers_file:
         pickle.dump(workers_dict, workers_file)
+    db.drop_all()
+    db.create_all()
 
 
 @main.route('/add_population', methods=['GET', 'POST'])
@@ -32,7 +34,7 @@ def add_population():
         flash('Zanim dodasz populacje musisz dodać model')
         return redirect(url_for('main.upload_model'), code=302)
     population_form = AddPopulationForm()
-    population_form.model_file.choices = uploaded_model_files
+    population_form.model_file.choices = [(file, file) for i, file in enumerate(uploaded_model_files)]
     if population_form.validate_on_submit():
         if Population.query.filter_by(name=population_form.name.data).first() is None:
             population = Population(name=population_form.name.data,
@@ -40,7 +42,7 @@ def add_population():
                                     crossover=population_form.cross_coef.data,
                                     mutation=population_form.mut_coef.data,
                                     generations=population_form.max_generations.data,
-                                    model_file=population_form.model_file)
+                                    model_file=population_form.model_file.data)
             db.session.add(population)
             db.session.commit()
             flash('Population added')
@@ -159,10 +161,24 @@ def workers_update():
     return jsonify(get_workers())
 
 
+@main.route('/task_finished/<worker_id>/<population_name>', methods=['POST'])
+def task_finished(worker_id, population_name):
+    worker_finished_task(worker_id, population_name)
+    return jsonify({})
+
+
 def get_workers():
     with open(WORKERS_FILE_PATH, 'rb') as workers_file:
         workers_dict = pickle.load(workers_file)
     return workers_dict
+
+
+def worker_finished_task(worker_id, population_name):
+    workers = get_workers()
+    worker = workers[worker_id]
+    worker['notifications'] = 'Worker finished: ' + population_name
+    worker['status'] = 'waiting'
+    override_workers_file(workers)
 
 
 def add_worker(worker_id, worker_url):
@@ -171,7 +187,7 @@ def add_worker(worker_id, worker_url):
     if os.path.getsize(WORKERS_FILE_PATH) > 0:
         workers_dict = get_workers()
 
-    workers_dict[worker_id] = {'url': worker_url, 'status': 'waiting', 'errors': None}
+    workers_dict[worker_id] = {'url': worker_url, 'status': 'waiting', 'notifications': None}
     override_workers_file(workers_dict)
 
 
@@ -213,7 +229,7 @@ def invalid_model(worker_id, model_file):
     workers_dict = get_workers()
 
     worker = workers_dict[worker_id]
-    new_worker_dict = {'url': worker['url'], 'status': 'waiting', 'errors': model_file}
+    new_worker_dict = {'url': worker['url'], 'status': 'waiting', 'notifications': 'Model error: ' + model_file}
     del workers_dict[worker_id]
     override_workers_file({worker_id: new_worker_dict, **workers_dict})
 
