@@ -66,7 +66,7 @@
         <div>
             <form action="{{ url_for('main.population_details',
                                  population_name=population_name,
-                                 plotting_variant='default') }}" method="post">
+                                 plotting_variant=plotting_variant) }}" method="post">
                 <select name="plotting_variant">
                     {% for feature in feature_names %}
                     <option name="plotting_variant" value="{{ feature }}">{{ feature }}</option>

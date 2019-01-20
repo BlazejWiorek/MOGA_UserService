@@ -123,7 +123,6 @@ class PopulationMetricsChoices:
     MAX_PROFIT = 'Max length'
     AVG_PROFIT = 'Average length'
     MIN_PROFIT = 'Mix length'
-    MIN_MAX_AVG = 'Min - Max - Avg'
     STD_PROFIT = 'Standard deviation of profit'
     STD_LENGTH = 'Standard deviation of length'
     VARIETY = 'Variety per generation'
@@ -134,7 +133,6 @@ class PopulationMetricsChoices:
               MAX_PROFIT: 'max_profit',
               AVG_PROFIT: 'avg_profit',
               MIN_PROFIT: 'min_profit',
-              MIN_MAX_AVG: '',
               STD_PROFIT: 'std_profit',
               STD_LENGTH: 'std_length',
               VARIETY: 'routes_variety'}
@@ -144,8 +142,8 @@ class PopulationMetricsChoices:
         return [PopulationMetricsChoices.MAX_LENGTH, PopulationMetricsChoices.AVG_LENGTH,
                 PopulationMetricsChoices.MIN_LENGTH, PopulationMetricsChoices.MAX_PROFIT,
                 PopulationMetricsChoices.AVG_PROFIT, PopulationMetricsChoices.MIN_PROFIT,
-                PopulationMetricsChoices.MIN_MAX_AVG, PopulationMetricsChoices.STD_PROFIT,
-                PopulationMetricsChoices.STD_LENGTH, PopulationMetricsChoices.VARIETY]
+                PopulationMetricsChoices.STD_PROFIT, PopulationMetricsChoices.STD_LENGTH,
+                PopulationMetricsChoices.VARIETY]
 
     @staticmethod
     def to_column(selection):

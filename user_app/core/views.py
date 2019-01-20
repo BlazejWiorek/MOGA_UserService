@@ -15,13 +15,11 @@ import pickle
 import requests
 
 
-WORKERS_FILE_PATH = os.path.join(os.getcwd(), 'user_app/static/workers.pickle')
-
-
 @main.before_app_first_request
 def remove_workers():
+
     workers_dict = dict()
-    with open(WORKERS_FILE_PATH, 'wb') as workers_file:
+    with open(current_app.config['WORKERS_FILE_PATH'], 'wb') as workers_file:
         pickle.dump(workers_dict, workers_file)
     db.drop_all()
     db.create_all()
@@ -29,9 +27,9 @@ def remove_workers():
 
 @main.route('/add_population', methods=['GET', 'POST'])
 def add_population():
-    uploaded_model_files = get_uploaded_model_names(os.path.join(os.getcwd(), 'user_app/static/models'))
+    uploaded_model_files = get_uploaded_model_names(current_app.config['MODELS_DIRECTORY'])
     if not uploaded_model_files:
-        flash('Zanim dodasz populacje musisz dodać model')
+        flash('Before you add a population, you need to upload model file')
         return redirect(url_for('main.upload_model'), code=302)
     population_form = AddPopulationForm()
     population_form.model_file.choices = [(file, file) for i, file in enumerate(uploaded_model_files)]
@@ -60,7 +58,7 @@ def dashboard():
 
     populations = Population.query.all()
     if len(populations) == 0:
-        flash('Zanim przejdziesz do panelu podglądu populacji musisz dodać populacje')
+        flash('Before you route to dashboard, you need to add population')
         return redirect(url_for('main.add_population'), code=302)
     return render_template('main/dashboard.html', populations=populations)
 
@@ -115,7 +113,7 @@ def population_details(population_name, plotting_variant):
 
     return render_template('main/population_details.html',
                            feature_names=PopulationMetricsChoices.to_list(),
-                           plotting_variant='default',
+                           plotting_variant=plotting_variant,
                            population_name=population_name,
                            plots=plots)
 
@@ -123,13 +121,13 @@ def population_details(population_name, plotting_variant):
 @main.route('/worker_ready/<worker_id>/<worker_url>', methods=['POST'])
 def register_worker(worker_id, worker_url):
     worker_url = 'http://' + worker_url
-    add_worker(worker_id, worker_url)
+    add_worker(current_app.config['WORKERS_FILE_PATH'], worker_id, worker_url)
     return jsonify({})
 
 
 @main.route('/init_evolution_task/<pop_id>', methods=['POST'])
 def init_evolution(pop_id):
-    available_worker_data = get_available_worker()
+    available_worker_data = get_available_worker(current_app.config['WORKERS_FILE_PATH'])
     if not available_worker_data:
         return jsonify(no_workers=1)
     available_worker_url, available_worker_id = available_worker_data
@@ -147,7 +145,7 @@ def get_model(model_file):
             return send_from_directory(directory=models_dir, filename=model_file, as_attachment=True)
     else:
         worker_id, model_file = pickle.loads(request.data)
-        invalid_model(worker_id, model_file)
+        invalid_model(current_app.config['WORKERS_FILE_PATH'], worker_id, model_file)
     return jsonify({})
 
 
@@ -158,37 +156,37 @@ def workers():
 
 @main.route('/workers_update', methods=['GET', 'POST'])
 def workers_update():
-    return jsonify(get_workers())
+    return jsonify(get_workers(current_app.config['WORKERS_FILE_PATH']))
 
 
 @main.route('/task_finished/<worker_id>/<population_name>', methods=['POST'])
 def task_finished(worker_id, population_name):
-    worker_finished_task(worker_id, population_name)
+    worker_finished_task(current_app.config['WORKERS_FILE_PATH'], worker_id, population_name)
     return jsonify({})
 
 
-def get_workers():
-    with open(WORKERS_FILE_PATH, 'rb') as workers_file:
+def get_workers(workers_file_path):
+    with open(workers_file_path, 'rb') as workers_file:
         workers_dict = pickle.load(workers_file)
     return workers_dict
 
 
-def worker_finished_task(worker_id, population_name):
-    workers = get_workers()
+def worker_finished_task(workers_file_path, worker_id, population_name):
+    workers = get_workers(workers_file_path)
     worker = workers[worker_id]
     worker['notifications'] = 'Worker finished: ' + population_name
     worker['status'] = 'waiting'
-    override_workers_file(workers)
+    override_workers_file(workers_file_path, workers)
 
 
-def add_worker(worker_id, worker_url):
+def add_worker(workers_file_path, worker_id, worker_url):
     workers_dict = dict()
 
-    if os.path.getsize(WORKERS_FILE_PATH) > 0:
-        workers_dict = get_workers()
+    if os.path.getsize(workers_file_path) > 0:
+        workers_dict = get_workers(workers_file_path)
 
     workers_dict[worker_id] = {'url': worker_url, 'status': 'waiting', 'notifications': None}
-    override_workers_file(workers_dict)
+    override_workers_file(workers_file_path, workers_dict)
 
 
 def create_evolution_request_data(worker_id, pop_id):
@@ -201,11 +199,11 @@ def create_evolution_request_data(worker_id, pop_id):
     return pickle.dumps(request_dict)
 
 
-def get_available_worker():
-    if os.path.getsize(WORKERS_FILE_PATH) == 0:
+def get_available_worker(workers_file_path):
+    if os.path.getsize(workers_file_path) == 0:
         return None
 
-    workers_dict = get_workers()
+    workers_dict = get_workers(workers_file_path)
 
     avail_workers = [(worker_id, workers_dict[worker_id]['url'])
                      for worker_id, worker_dict in workers_dict.items()
@@ -216,22 +214,22 @@ def get_available_worker():
 
     avail_worker_id, avail_worker_url = avail_workers[0]
     workers_dict[avail_worker_id]['status'] = 'busy'
-    override_workers_file(workers_dict)
+    override_workers_file(workers_file_path, workers_dict)
     return avail_worker_url, avail_worker_id
 
 
-def override_workers_file(new_workers_dict):
-    with open(WORKERS_FILE_PATH, 'wb') as workers_file:
+def override_workers_file(workers_file_path, new_workers_dict):
+    with open(workers_file_path, 'wb') as workers_file:
         pickle.dump(new_workers_dict, workers_file)
 
 
-def invalid_model(worker_id, model_file):
-    workers_dict = get_workers()
+def invalid_model(workers_file_path, worker_id, model_file):
+    workers_dict = get_workers(workers_file_path)
 
     worker = workers_dict[worker_id]
     new_worker_dict = {'url': worker['url'], 'status': 'waiting', 'notifications': 'Model error: ' + model_file}
     del workers_dict[worker_id]
-    override_workers_file({worker_id: new_worker_dict, **workers_dict})
+    override_workers_file(workers_file_path, {worker_id: new_worker_dict, **workers_dict})
 
 
 def get_population_metrics(pop_name, selected_feature):
